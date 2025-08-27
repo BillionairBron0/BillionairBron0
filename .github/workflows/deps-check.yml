@@ -1,0 +1,23 @@
+name: Dependency Check
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch: {}
+jobs:
+  deps:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run deps:check
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-report
+          path: server/dependency-report.json

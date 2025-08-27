@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install server deps
+        run: |
+          cd server
+          npm ci
+      - name: Run tests
+        run: |
+          cd server
+          npm test -- --ci --runInBand
+      - name: Backtest sample (if sample file exists)
+        run: |
+          cd server
+          if [ -f sample-bars.json ]; then node src/backtest/runBacktest.js sample-bars.json; fi

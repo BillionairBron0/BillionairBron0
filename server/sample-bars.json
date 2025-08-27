@@ -1,0 +1,8 @@
+[
+  {"symbol":"TEST","time":"2024-01-01T00:00:00Z","open":100,"high":101,"low":99.5,"close":100.5,"volume":1000},
+  {"symbol":"TEST","time":"2024-01-01T00:01:00Z","open":100.5,"high":101.2,"low":100.2,"close":101,"volume":900},
+  {"symbol":"TEST","time":"2024-01-01T00:02:00Z","open":101,"high":101.6,"low":100.7,"close":101.4,"volume":950},
+  {"symbol":"TEST","time":"2024-01-01T00:03:00Z","open":101.4,"high":101.8,"low":101,"close":101.2,"volume":880},
+  {"symbol":"TEST","time":"2024-01-01T00:04:00Z","open":101.2,"high":101.9,"low":100.9,"close":101.7,"volume":920},
+  {"symbol":"TEST","time":"2024-01-01T00:05:00Z","open":101.7,"high":102.4,"low":101.5,"close":102.2,"volume":990}
+]

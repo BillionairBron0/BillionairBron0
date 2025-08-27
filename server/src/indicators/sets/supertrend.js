@@ -1,0 +1,38 @@
+export const supertrendIndicator = {
+  name: 'Supertrend',
+  compute(state, cfg) {
+    const h = state.history;
+    const period = cfg?.supertrend?.period || 10;
+    const mult = cfg?.supertrend?.multiplier || 3;
+    if (h.length < period+2) return { longTrigger:false, shortTrigger:false };
+    const atr = (idx) => {
+      if (idx < period) return null; let sum=0;
+      for (let i=idx-period+1;i<=idx;i++) {
+        const c = h[i]; const p=h[i-1];
+        const tr=Math.max(c.high-c.low, Math.abs(c.high-p.close), Math.abs(c.low-p.close)); sum+=tr;
+      }
+      return sum/period;
+    };
+    let trend='LONG', upper=0, lower=0, prevClose=null; const stSeries=[];
+    for (let i=0;i<h.length;i++) {
+      const bar=h[i]; const a=atr(i); if (a==null) { stSeries.push({}); continue; }
+      const mid=(bar.high+bar.low)/2; const bU=mid + mult*a; const bL=mid - mult*a;
+      if (!upper) { upper=bU; lower=bL; } else {
+        upper=(bU<upper || prevClose>upper)?bU:upper;
+        lower=(bL>lower || prevClose<lower)?bL:lower;
+      }
+      let flipped=false; if (trend==='LONG' && bar.close<lower){ trend='SHORT'; flipped=true; }
+      else if (trend==='SHORT' && bar.close>upper){ trend='LONG'; flipped=true; }
+      stSeries.push({ trend, flipped, upper, lower, close: bar.close });
+      prevClose=bar.close;
+    }
+    const last = stSeries[stSeries.length-1];
+    return {
+      longTrigger: last.trend==='LONG' && last.flipped,
+      shortTrigger: last.trend==='SHORT' && last.flipped,
+      longRationale: last.trend==='LONG'?`Supertrend flip up @ ${last.close}`:'',
+      shortRationale: last.trend==='SHORT'?`Supertrend flip down @ ${last.close}`:'',
+      meta: { last }
+    };
+  }
+};

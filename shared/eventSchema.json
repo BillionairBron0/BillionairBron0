@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://billionairbron0.local/schema/event.schema.json",
+  "title": "SignalEngineEvent",
+  "oneOf": [
+    {"$ref": "#/definitions/watchOpportunity"},
+    {"$ref": "#/definitions/actionableSignal"},
+    {"$ref": "#/definitions/expiredSetup"},
+    {"$ref": "#/definitions/cancelledSetup"},
+    {"$ref": "#/definitions/infoDiagnostics"}
+  ],
+  "definitions": {
+    "base": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {"type": {"type": "string"}}
+    },
+    "watchOpportunity": {
+      "allOf": [
+        {"$ref": "#/definitions/base"},
+        {
+          "properties": {
+            "type": {"const": "watchOpportunity"},
+            "side": {"enum": ["LONG", "SHORT"]},
+            "status": {"const": "PENDING"},
+            "time": {"type": "string", "format": "date-time"},
+            "price": {"type": "number"},
+            "barsSinceLeading": {"type": "integer"},
+            "confirmationsPassed": {"type": "array", "items": {"type": "string"}},
+            "confirmationsMissing": {"type": "array", "items": {"type": "string"}},
+            "expiresInBars": {"type": "integer"}
+          },
+          "required": ["side","status","time","price","barsSinceLeading","confirmationsPassed","confirmationsMissing","expiresInBars"]
+        }
+      ]
+    },
+    "actionableSignal": {
+      "allOf": [
+        {"$ref": "#/definitions/base"},
+        {
+          "properties": {
+            "type": {"const": "actionableSignal"},
+            "side": {"enum": ["LONG", "SHORT"]},
+            "status": {"const": "ACTIONABLE"},
+            "time": {"type": "string", "format": "date-time"},
+            "price": {"type": "number"},
+            "leadingIndicator": {"type": "object"},
+            "confirmations": {"type": "object"},
+            "confluenceScore": {"type": "number"},
+            "risk": {"type": "object"},
+            "reasonSummary": {"type": "string"}
+          },
+          "required": ["side","status","time","price","leadingIndicator","confirmations","confluenceScore","reasonSummary"]
+        }
+      ]
+    },
+    "expiredSetup": {
+      "allOf": [
+        {"$ref": "#/definitions/base"},
+        {"properties": {"type": {"const": "expiredSetup"}, "side": {"enum":["LONG","SHORT"]}, "reason": {"type":"string"}, "barsWaited": {"type":"integer"}},"required":["side","reason"]}
+      ]
+    },
+    "cancelledSetup": {
+      "allOf": [
+        {"$ref": "#/definitions/base"},
+        {"properties": {"type": {"const": "cancelledSetup"}, "side": {"enum":["LONG","SHORT"]}, "reason": {"type":"string"}},"required":["side","reason"]}
+      ]
+    },
+    "infoDiagnostics": {
+      "allOf": [
+        {"$ref": "#/definitions/base"},
+        {"properties": {"type": {"const": "infoDiagnostics"}, "message": {"type":"string"}},"required":["message"]}
+      ]
+    }
+  }
+}
