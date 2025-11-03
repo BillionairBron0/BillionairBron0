@@ -174,31 +174,75 @@
         let events = [];
         let currentFilter = 'ALL';
         let ws = null;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
 
         function connect() {
-            ws = new WebSocket('ws://localhost:4000/stream');
-            
-            ws.onopen = () => {
-                document.getElementById('ws-status').textContent = 'Connected';
-                document.getElementById('ws-status').className = 'status connected';
-            };
-
-            ws.onclose = () => {
-                document.getElementById('ws-status').textContent = 'Disconnected';
+            if (reconnectAttempts >= maxReconnectAttempts) {
+                document.getElementById('ws-status').textContent = 'Connection failed';
                 document.getElementById('ws-status').className = 'status disconnected';
-                setTimeout(connect, 3000);
-            };
+                // Fallback to HTTP polling
+                startPolling();
+                return;
+            }
 
-            ws.onmessage = (msg) => {
+            try {
+                ws = new WebSocket('ws://localhost:4000/stream');
+                
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    document.getElementById('ws-status').textContent = 'Connected';
+                    document.getElementById('ws-status').className = 'status connected';
+                    reconnectAttempts = 0;
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket disconnected');
+                    document.getElementById('ws-status').textContent = 'Disconnected';
+                    document.getElementById('ws-status').className = 'status disconnected';
+                    reconnectAttempts++;
+                    setTimeout(connect, 3000);
+                };
+
+                ws.onmessage = (msg) => {
+                    try {
+                        const newEvents = JSON.parse(msg.data);
+                        console.log('Received events:', newEvents);
+                        if (Array.isArray(newEvents)) {
+                            events = [...newEvents, ...events].slice(0, 100);
+                            updateStats();
+                            renderEvents();
+                        }
+                    } catch (e) {
+                        console.error('Error parsing message:', e);
+                    }
+                };
+            } catch (e) {
+                console.error('Error creating WebSocket:', e);
+                reconnectAttempts++;
+                setTimeout(connect, 3000);
+            }
+        }
+
+        function startPolling() {
+            // Fallback: poll the HTTP endpoint for signals
+            setInterval(async () => {
                 try {
-                    const newEvents = JSON.parse(msg.data);
-                    events = [...newEvents, ...events].slice(0, 100);
-                    updateStats();
-                    renderEvents();
+                    const response = await fetch('http://localhost:4000/signals/page?limit=50&offset=0');
+                    const data = await response.json();
+                    if (data.signals && data.signals.length > 0) {
+                        events = data.signals.map(s => JSON.parse(s.payload));
+                        updateStats();
+                        renderEvents();
+                    }
                 } catch (e) {
-                    console.error('Error parsing message:', e);
+                    console.error('Polling error:', e);
                 }
-            };
+            }, 5000);
         }
 
         function updateStats() {
@@ -221,21 +265,32 @@
                 return;
             }
 
-            container.innerHTML = filtered.map(event => `
-                <div class="event-card">
-                    <div class="event-type">
-                        ${event.type}
-                        ${event.side ? `<span class="event-side ${event.side}">${event.side}</span>` : ''}
+            const cards = filtered.map(event => {
+                const sideHtml = event.side ? `<span class="event-side ${event.side}">${event.side}</span>` : '';
+                const symbolHtml = event.symbol ? `<div class="event-detail"><span class="label">Symbol:</span><span class="value">${event.symbol}</span></div>` : '';
+                const priceHtml = event.price ? `<div class="event-detail"><span class="label">Price:</span><span class="value">${event.price}</span></div>` : '';
+                const timeHtml = event.time ? `<div class="event-detail"><span class="label">Time:</span><span class="value">${new Date(event.time).toLocaleString()}</span></div>` : '';
+                const reasonHtml = event.reasonSummary ? `<div class="event-detail"><span class="label">Reason:</span><span class="value">${event.reasonSummary}</span></div>` : '';
+                const confluenceHtml = event.confluenceScore ? `<div class="event-detail"><span class="label">Confluence:</span><span class="value">${(event.confluenceScore * 100).toFixed(0)}%</span></div>` : '';
+                
+                return `
+                    <div class="event-card">
+                        <div class="event-type">
+                            ${event.type}
+                            ${sideHtml}
+                        </div>
+                        <div class="event-details">
+                            ${symbolHtml}
+                            ${priceHtml}
+                            ${timeHtml}
+                            ${reasonHtml}
+                            ${confluenceHtml}
+                        </div>
                     </div>
-                    <div class="event-details">
-                        ${event.symbol ? `<div class="event-detail"><span class="label">Symbol:</span><span class="value">${event.symbol}</span></div>` : ''}
-                        ${event.price ? `<div class="event-detail"><span class="label">Price:</span><span class="value">${event.price}</span></div>` : ''}
-                        ${event.time ? `<div class="event-detail"><span class="label">Time:</span><span class="value">${new Date(event.time).toLocaleString()}</span></div>` : ''}
-                        ${event.reasonSummary ? `<div class="event-detail"><span class="label">Reason:</span><span class="value">${event.reasonSummary}</span></div>` : ''}
-                        ${event.confluenceScore ? `<div class="event-detail"><span class="label">Confluence:</span><span class="value">${(event.confluenceScore * 100).toFixed(0)}%</span></div>` : ''}
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
+
+            container.innerHTML = cards;
         }
 
         document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -247,9 +302,25 @@
             });
         });
 
+        // Start connection
         connect();
 
-        // Simulate some initial data for demo purposes
+        // Also try to load historical data immediately
+        setTimeout(async () => {
+            try {
+                const response = await fetch('http://localhost:4000/signals/page?limit=50&offset=0');
+                const data = await response.json();
+                if (data.signals && data.signals.length > 0) {
+                    events = data.signals.map(s => JSON.parse(s.payload));
+                    updateStats();
+                    renderEvents();
+                }
+            } catch (e) {
+                console.log('Could not load historical data:', e);
+            }
+        }, 1000);
+
+        // Simulate some initial data for demo purposes if nothing arrives
         setTimeout(() => {
             if (events.length === 0) {
                 // Send a sample bar to generate signals
@@ -259,15 +330,15 @@
                     body: JSON.stringify({
                         symbol: 'BTCUSD',
                         time: new Date().toISOString(),
-                        open: 100,
-                        high: 110,
-                        low: 95,
-                        close: 108,
+                        open: 50000,
+                        high: 51000,
+                        low: 49500,
+                        close: 50800,
                         volume: 12345
                     })
                 }).catch(console.error);
             }
-        }, 2000);
+        }, 3000);
     </script>
 </body>
 </html>
