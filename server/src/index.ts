@@ -24,6 +24,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(rateLimit({ windowMs: 60_000, max: 120 }));
+app.use(express.static('public'));
 
 // Manage per-symbol engines
 const engines = new Map<string, SignalEngine>();

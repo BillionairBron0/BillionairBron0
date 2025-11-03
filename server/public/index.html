@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BillionairBron0 Signal Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0e1116 0%, #1c2128 100%);
+            color: #c9d1d9;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .header {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(88,166,255,0.2);
+        }
+        h1 {
+            color: #58a6ff;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status.connected { background: #238636; color: #fff; }
+        .status.disconnected { background: #da3633; color: #fff; }
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .filter-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #30363d;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover { background: #424a53; }
+        .filter-btn.active { background: #58a6ff; }
+        .events-container {
+            display: grid;
+            gap: 12px;
+        }
+        .event-card {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(88,166,255,0.2);
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.2s;
+        }
+        .event-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(88,166,255,0.3);
+        }
+        .event-type {
+            font-size: 16px;
+            font-weight: 600;
+            color: #58a6ff;
+            margin-bottom: 8px;
+        }
+        .event-side {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .event-side.LONG { background: #238636; }
+        .event-side.SHORT { background: #da3633; }
+        .event-details {
+            display: grid;
+            gap: 4px;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+        .event-detail {
+            display: flex;
+            justify-content: space-between;
+        }
+        .event-detail .label {
+            color: #8b949e;
+        }
+        .event-detail .value {
+            color: #c9d1d9;
+            font-weight: 500;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(88,166,255,0.2);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .stat-label {
+            color: #8b949e;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            color: #58a6ff;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .no-events {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 BillionairBron0 Signal Dashboard</h1>
+        <p>Real-time trading signals powered by AI</p>
+        <div style="margin-top: 10px;">
+            <span class="status" id="ws-status">Connecting...</span>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-label">Total Signals</div>
+            <div class="stat-value" id="total-signals">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Long Signals</div>
+            <div class="stat-value" style="color: #238636;" id="long-signals">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Short Signals</div>
+            <div class="stat-value" style="color: #da3633;" id="short-signals">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Watch Opportunities</div>
+            <div class="stat-value" id="watch-signals">0</div>
+        </div>
+    </div>
+
+    <div class="filters">
+        <button class="filter-btn active" data-filter="ALL">All Signals</button>
+        <button class="filter-btn" data-filter="LONG">Long Only</button>
+        <button class="filter-btn" data-filter="SHORT">Short Only</button>
+        <button class="filter-btn" data-filter="actionableSignal">Actionable</button>
+        <button class="filter-btn" data-filter="watchOpportunity">Watch</button>
+    </div>
+
+    <div class="events-container" id="events-container">
+        <div class="no-events">Waiting for signals...</div>
+    </div>
+
+    <script>
+        let events = [];
+        let currentFilter = 'ALL';
+        let ws = null;
+
+        function connect() {
+            ws = new WebSocket('ws://localhost:4000/stream');
+            
+            ws.onopen = () => {
+                document.getElementById('ws-status').textContent = 'Connected';
+                document.getElementById('ws-status').className = 'status connected';
+            };
+
+            ws.onclose = () => {
+                document.getElementById('ws-status').textContent = 'Disconnected';
+                document.getElementById('ws-status').className = 'status disconnected';
+                setTimeout(connect, 3000);
+            };
+
+            ws.onmessage = (msg) => {
+                try {
+                    const newEvents = JSON.parse(msg.data);
+                    events = [...newEvents, ...events].slice(0, 100);
+                    updateStats();
+                    renderEvents();
+                } catch (e) {
+                    console.error('Error parsing message:', e);
+                }
+            };
+        }
+
+        function updateStats() {
+            document.getElementById('total-signals').textContent = events.length;
+            document.getElementById('long-signals').textContent = events.filter(e => e.side === 'LONG').length;
+            document.getElementById('short-signals').textContent = events.filter(e => e.side === 'SHORT').length;
+            document.getElementById('watch-signals').textContent = events.filter(e => e.type === 'watchOpportunity').length;
+        }
+
+        function renderEvents() {
+            const container = document.getElementById('events-container');
+            const filtered = events.filter(e => {
+                if (currentFilter === 'ALL') return true;
+                if (currentFilter === 'LONG' || currentFilter === 'SHORT') return e.side === currentFilter;
+                return e.type === currentFilter;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="no-events">No signals match the current filter.</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(event => `
+                <div class="event-card">
+                    <div class="event-type">
+                        ${event.type}
+                        ${event.side ? `<span class="event-side ${event.side}">${event.side}</span>` : ''}
+                    </div>
+                    <div class="event-details">
+                        ${event.symbol ? `<div class="event-detail"><span class="label">Symbol:</span><span class="value">${event.symbol}</span></div>` : ''}
+                        ${event.price ? `<div class="event-detail"><span class="label">Price:</span><span class="value">${event.price}</span></div>` : ''}
+                        ${event.time ? `<div class="event-detail"><span class="label">Time:</span><span class="value">${new Date(event.time).toLocaleString()}</span></div>` : ''}
+                        ${event.reasonSummary ? `<div class="event-detail"><span class="label">Reason:</span><span class="value">${event.reasonSummary}</span></div>` : ''}
+                        ${event.confluenceScore ? `<div class="event-detail"><span class="label">Confluence:</span><span class="value">${(event.confluenceScore * 100).toFixed(0)}%</span></div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderEvents();
+            });
+        });
+
+        connect();
+
+        // Simulate some initial data for demo purposes
+        setTimeout(() => {
+            if (events.length === 0) {
+                // Send a sample bar to generate signals
+                fetch('http://localhost:4000/ingest/bar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        symbol: 'BTCUSD',
+                        time: new Date().toISOString(),
+                        open: 100,
+                        high: 110,
+                        low: 95,
+                        close: 108,
+                        volume: 12345
+                    })
+                }).catch(console.error);
+            }
+        }, 2000);
+    </script>
+</body>
+</html>
