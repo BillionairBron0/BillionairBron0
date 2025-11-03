@@ -170,16 +170,6 @@ export class SignalEngine {
     return set;
   }
 
-  evalLeading() {
-    const { leadingIndicator } = this.config;
-    switch (leadingIndicator) {
-      case 'Range Filter': return this.leadRangeFilter();
-      case 'MACD': return this.leadMACD();
-      case 'Supertrend': return this.leadSupertrend();
-      default: return { longTrigger:false, shortTrigger:false, longRationale:'unimplemented', shortRationale:'unimplemented' };
-    }
-  }
-
   leadSupertrend() {
     const st = this.calcSupertrend();
     if (!st) return { longTrigger:false, shortTrigger:false };

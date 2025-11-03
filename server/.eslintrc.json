@@ -1,7 +1,26 @@
 {
   "env": {"es2022": true, "node": true, "jest": true},
+  "parser": "@typescript-eslint/parser",
   "parserOptions": {"ecmaVersion": 2022, "sourceType": "module"},
+  "plugins": ["@typescript-eslint"],
   "extends": ["eslint:recommended"],
+  "overrides": [
+    {
+      "files": ["*.ts"],
+      "parser": "@typescript-eslint/parser",
+      "parserOptions": {
+        "ecmaVersion": 2022,
+        "sourceType": "module",
+        "project": "./tsconfig.json"
+      },
+      "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
+      "rules": {
+        "@typescript-eslint/no-unused-vars": ["warn"],
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/ban-ts-comment": "off"
+      }
+    }
+  ],
   "rules": {
     "no-unused-vars": ["warn"],
     "no-undef": "error"
