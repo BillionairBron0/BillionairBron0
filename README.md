@@ -1,4 +1,4 @@
-# BillionairBron0 Platform
+# BillionaireBron0 Platform
 
 Early scaffold for the "DeepSeek R1 AI Asset Sniffing Hound" mobile + server system derived from DIY Custom Strategy Builder logic.
 
